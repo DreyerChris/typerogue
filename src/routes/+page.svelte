@@ -1,8 +1,13 @@
 <script lang="ts">
+  import Toolbar from "$lib/components/toolbar.svelte";
   import Letter from "$lib/components/ui/letter.svelte";
+  import { differenceInSeconds } from "date-fns";
   import { generate } from "random-words";
 
-  let randomWords = generate(50);
+  let wordCount = 5;
+  let randomWords = generate(wordCount);
+  let start: Date | null = null;
+  let end: Date | null = null;
   let wordState = [...(randomWords as string[]).join(" ")].map((letter) => {
     return {
       letter,
@@ -99,6 +104,9 @@
   }
 
   function checkCharacter(char: string) {
+    if (start === null) {
+      start = new Date();
+    }
     let state = "untyped";
     if (char === wordState[currentWordIndex].letter) {
       state = "correct";
@@ -122,11 +130,57 @@
     });
 
     currentWordIndex += 1;
+
+    if (currentWordIndex === wordState.length) {
+      end = new Date();
+    }
   }
+
+  const wordsPerMinute = (): string => {
+    const secondsDifference = differenceInSeconds(end!, start!);
+
+    return ((wordCount / secondsDifference) * 60).toFixed(0);
+  };
+
+  const accuracy = (): string => {
+    return (
+      (wordState.filter((wordStateItem) => wordStateItem.state === "correct")
+        .length /
+        wordState.length) *
+      100
+    ).toFixed(2);
+  };
+
+  const reset = () => {
+    randomWords = generate(wordCount);
+    start = null;
+    end = null;
+    wordState = [...(randomWords as string[]).join(" ")].map((letter) => {
+      return {
+        letter,
+        state: "untyped",
+      };
+    });
+    currentWordIndex = 0;
+    lastIncorrectIndex = -1;
+  };
 </script>
 
 <section class="m-auto w-6/12 h-2/6">
-  <div class="flex flex-wrap">
+  <Toolbar
+    changeWordCount={(words) => {
+      wordCount = words;
+      reset();
+    }}
+    currentWordCount={wordCount}
+  />
+  {#if end}
+    <div class="flex justify-center items-center mx-auto space-x-6 mb-10">
+      <p class="text-2xl text-orange-500 font-black">WPM: {wordsPerMinute()}</p>
+      <p class="text-2xl text-orange-500 font-black">Acc: {accuracy()}%</p>
+    </div>
+  {/if}
+  <div class="flex flex-wrap mx-auto justify-center">
     {#each wordState as word}
       <Letter
         letter={word.letter}
